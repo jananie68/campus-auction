@@ -9,7 +9,7 @@ A campus marketplace where every item gets its own timed auction, transparent bi
 3. Copy `backend/.env.example` to `backend/.env` and set `MONGODB_URI` (defaults to local MongoDB).
 4. Run `npm run dev` and open [http://localhost:5173](http://localhost:5173).
 
-The API runs on port 5000. If MongoDB is unavailable, it uses an in-memory demo store so you can still explore the UI and bidding flow. Demo accounts and auction changes in that mode reset when the server restarts. Sign-up and log-in use hashed passwords and signed sessions; configure a private `JWT_SECRET` for any deployed environment.
+The API runs on port 5000. If MongoDB is unavailable, the demo backend persists accounts and auction changes in `backend/data/store.json`, so they survive page refreshes and server restarts. That local data file is excluded from Git. Sign-up and log-in use hashed passwords and signed sessions; configure a private `JWT_SECRET` for any deployed environment.
 
 ## Included
 

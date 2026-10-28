@@ -4,6 +4,9 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Auction from './models/Auction.js';
 import User from './models/User.js';
 
@@ -18,13 +21,26 @@ const memory = [
   { _id: 'a5', title: 'Drawing & architecture kit', category: 'Supplies', description: 'Complete compass, set square and scale set. Barely used.', condition: 'Like new', image: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=1000&q=85', startingPrice: 250, minIncrement: 25, closesAt: new Date(Date.now() + 70 * 3600000).toISOString(), seller: 'Tara J.', bids: [], status: 'live', questions: [] },
   { _id: 'a6', title: 'Hostel room desk lamp', category: 'Furniture', description: 'Warm and cool light settings, adjustable neck. USB powered.', condition: 'Good', image: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1000&q=85', startingPrice: 300, minIncrement: 25, closesAt: new Date(Date.now() + 96 * 3600000).toISOString(), seller: 'Arjun V.', bids: [], status: 'live', questions: [] }
 ];
+const demoUsers = new Map();
+const dataDirectory = path.join(path.dirname(fileURLToPath(import.meta.url)), 'data');
+const dataFile = process.env.DEMO_STORE_PATH || path.join(dataDirectory, 'store.json');
+const persistDemoStore = async () => {
+  await mkdir(path.dirname(dataFile), { recursive: true });
+  await writeFile(dataFile, JSON.stringify({ auctions: memory, users: [...demoUsers.entries()] }, null, 2), 'utf8');
+};
+try {
+  const stored = JSON.parse(await readFile(dataFile, 'utf8'));
+  if (Array.isArray(stored.auctions)) memory.splice(0, memory.length, ...stored.auctions);
+  for (const [email, user] of stored.users || []) demoUsers.set(email, user);
+} catch (error) {
+  if (error.code !== 'ENOENT') console.warn(`Could not load demo store: ${error.message}`);
+}
 const serialize = (doc) => doc?.toObject ? { ...doc.toObject(), currentPrice: doc.currentPrice } : { ...doc, currentPrice: doc.bids?.at(-1)?.amount ?? doc.startingPrice };
 const all = async () => dbReady ? (await Auction.find().sort({ closesAt: 1 })).map(serialize) : memory;
 const find = async (id) => dbReady ? Auction.findById(id) : memory.find(x => x._id === id);
-const save = async (item) => dbReady ? item.save() : item;
+const save = async (item) => { if (dbReady) return item.save(); await persistDemoStore(); return item; };
 const fail = (res, code, message) => res.status(code).json({ error: message });
 const sellerOwns = (item, user) => user.role === 'seller' && (item.sellerId ? item.sellerId === user.id : item.seller === user.name);
-const demoUsers = new Map();
 const jwtSecret = process.env.JWT_SECRET || 'campus-auction-local-demo-secret-change-before-launch';
 const requireAuth = (req, res, next) => {
   const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
@@ -44,7 +60,7 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(201).json({ token, user: { name: user.name, email: user.email, role: user.role } });
     }
     if (demoUsers.has(normalized)) return fail(res, 409, 'An account with this email already exists.');
-    const user = { name: name.trim(), email: normalized, role, passwordHash: await bcrypt.hash(password, 10) }; demoUsers.set(normalized, user);
+    const user = { name: name.trim(), email: normalized, role, passwordHash: await bcrypt.hash(password, 10) }; demoUsers.set(normalized, user); await persistDemoStore();
     const token = jwt.sign({ id: normalized, name: user.name, email: normalized, role }, jwtSecret, { expiresIn: '7d' });
     return res.status(201).json({ token, user: { name: user.name, email: normalized, role } });
   } catch (error) { console.error(error); return fail(res, 500, 'Could not create your account. Please try again.'); }
@@ -79,7 +95,9 @@ app.post('/api/auctions', requireAuth, async (req, res) => {
   const { title, category, description, condition, image, startingPrice, minIncrement, closesAt } = req.body;
   if (!title || !category || !condition || !closesAt || Number(startingPrice) < 1 || Number(minIncrement) < 1 || new Date(closesAt) <= Date.now()) return fail(res, 400, 'Add the required details and a future closing time.');
   const data = { title, category, description, condition, image, startingPrice: Number(startingPrice), minIncrement: Number(minIncrement), closesAt, seller: req.user.name, sellerId: req.user.id, bids: [], questions: [], status: 'live' };
-  const item = dbReady ? new Auction(data) : { ...data, _id: `a${Date.now()}` }; await save(item); if (!dbReady) memory.unshift(item); res.status(201).json(serialize(item));
+  const item = dbReady ? new Auction(data) : { ...data, _id: `a${Date.now()}` };
+  if (dbReady) await save(item); else { memory.unshift(item); await persistDemoStore(); }
+  res.status(201).json(serialize(item));
 });
 app.patch('/api/auctions/:id', requireAuth, async (req, res) => {
   const item = await find(req.params.id); if (!item) return fail(res, 404, 'Auction not found');
