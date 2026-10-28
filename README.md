@@ -15,9 +15,13 @@ The API runs on port 5000. If MongoDB is unavailable, the demo backend persists 
 
 - Search and filters for category, condition, price, and closing soon.
 - Separate buyer and seller accounts: buyers browse and bid, while sellers manage listings and confirm auction outcomes.
-- Item listings with edit and cancel actions, image URL, closing time, and minimum increment.
+- Item listings with edit and cancel actions, local multi-photo uploads, closing time, and minimum increment.
 - Public bid history, bid validation, per-auction countdowns, and 30-second anti-sniping extensions.
 - Seller approval/rejection, reservation, and handover outcomes.
-- Saved search alerts, auction questions, browser notification permission, and a consent-first assistant tab.
+- Saved items, auction questions and seller replies, in-app and optional browser notifications, and a consent-first listing assistant.
+- Search sorting and pagination, server-side role guards, lazy and scheduled auction closing, and seller/buyer handover confirmation.
+- Rule tests for bid thresholds, bid rejection, closing outcomes, idempotency, and serialized simultaneous demo bids.
+
+Uploaded images are stored locally in `backend/uploads` and served from `/uploads`; use persistent object storage for deployment. The demo JSON mode is useful for local development; use MongoDB for shared multi-user persistence.
 
 This is a hackathon MVP. Student identity is represented by a name in the UI; add campus SSO and authorization before using it for real transactions.

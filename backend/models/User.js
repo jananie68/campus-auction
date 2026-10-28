@@ -4,7 +4,8 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   passwordHash: { type: String, required: true },
-  role: { type: String, enum: ['buyer', 'seller'], default: 'buyer' }
+  role: { type: String, enum: ['buyer', 'seller'], default: 'buyer' },
+  browserNotifications: { type: Boolean, default: false }
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema);

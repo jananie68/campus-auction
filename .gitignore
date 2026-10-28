@@ -6,3 +6,5 @@ backend/data/
 *.log
 .DS_Store
 Thumbs.db
+
+backend/uploads/
